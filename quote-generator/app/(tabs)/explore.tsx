@@ -1,112 +1,189 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  SafeAreaView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { useQuotes } from '@/hooks/use-quotes';
+import { Quote } from '@/db/database';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors } from '@/constants/theme';
 
-export default function TabTwoScreen() {
+export default function ExploreScreen() {
+  const { getAllQuotes, addQuote, deleteQuote } = useQuotes();
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [newText, setNewText] = useState('');
+  const [newAuthor, setNewAuthor] = useState('');
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+
+  const loadQuotes = useCallback(async () => {
+    const all = await getAllQuotes();
+    setQuotes(all);
+  }, [getAllQuotes]);
+
+  useEffect(() => {
+    loadQuotes();
+  }, [loadQuotes]);
+
+  const handleAdd = async () => {
+    const text = newText.trim();
+    const author = newAuthor.trim();
+    if (!text || !author) {
+      Alert.alert('入力エラー', '名言と著者名を入力してください');
+      return;
+    }
+    await addQuote(text, author);
+    setNewText('');
+    setNewAuthor('');
+    loadQuotes();
+  };
+
+  const handleDelete = (item: Quote) => {
+    Alert.alert('削除確認', `「${item.text}」を削除しますか？`, [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: '削除',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteQuote(item.id);
+          loadQuotes();
+        },
+      },
+    ]);
+  };
+
+  const isDark = colorScheme === 'dark';
+  const inputBg = isDark ? '#2a2a2a' : '#f5f5f5';
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, width: '100%' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Text style={[styles.header, { color: colors.tint }]}>名言一覧</Text>
+
+        {/* 追加フォーム */}
+        <View style={styles.form}>
+          <TextInput
+            style={[styles.input, { backgroundColor: inputBg, color: colors.text }]}
+            placeholder="名言を入力..."
+            placeholderTextColor={colors.icon}
+            value={newText}
+            onChangeText={setNewText}
+            multiline
+          />
+          <TextInput
+            style={[styles.input, { backgroundColor: inputBg, color: colors.text }]}
+            placeholder="著者名"
+            placeholderTextColor={colors.icon}
+            value={newAuthor}
+            onChangeText={setNewAuthor}
+          />
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: colors.tint }]}
+            onPress={handleAdd}
+            activeOpacity={0.8}>
+            <Text style={styles.addButtonText}>追加</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 名言リスト */}
+        <FlatList
+          data={quotes}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => (
+            <View style={[styles.row, { borderColor: colors.icon + '44' }]}>
+              <View style={styles.rowText}>
+                <Text style={[styles.quoteText, { color: colors.text }]}>{item.text}</Text>
+                <Text style={[styles.authorText, { color: colors.icon }]}>— {item.author}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
+                <Text style={styles.deleteText}>削除</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          ListEmptyComponent={
+            <Text style={{ color: colors.icon, textAlign: 'center', marginTop: 40 }}>
+              名言がありません
+            </Text>
+          }
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    padding: 16,
   },
-  titleContainer: {
-    flexDirection: 'row',
+  header: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  form: {
+    marginBottom: 12,
     gap: 8,
+  },
+  input: {
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+  },
+  addButton: {
+    borderRadius: 10,
+    padding: 14,
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  list: {
+    paddingBottom: 40,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  rowText: {
+    flex: 1,
+    gap: 4,
+  },
+  quoteText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  authorText: {
+    fontSize: 12,
+  },
+  deleteBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#ff3b3033',
+    borderRadius: 8,
+  },
+  deleteText: {
+    color: '#ff3b30',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
